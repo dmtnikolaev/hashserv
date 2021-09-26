@@ -6,12 +6,30 @@
 using json = nlohmann::json;
 
 #include "mhash.h"
+#include "server.h"
 
-std::string ProcessTransaction(const Transaction& trans) {
+std::string ProcessRequest(const Transaction& trans, Status* status) {
     auto method = DetermineMethod(trans.request);
     std::string res;
 
     if (method == Method::POST) {
+        if (trans.request.path != "/") {
+            *status = Status::NOT_FOUND;
+            return res;
+        }
+
+        bool type = false;
+        for (const auto& header : trans.headers) {
+            if (header == "Content-type: application/json" ||
+                header == "Content-Type: application/json") {
+                type = true;
+            }
+        }
+        if (!type) {
+            *status = Status::OK;
+            return res;
+        }
+
         auto body = json::parse(trans.body);
         std::string hh;
         if (body.contains("data")) {
@@ -25,7 +43,11 @@ std::string ProcessTransaction(const Transaction& trans) {
             hash["gost"] = h2;
 
             res = hash.dump();
+            *status = Status::OK;
         }
+    }
+    else {
+        *status = Status::NOT_FOUND;
     }
 
     return res;

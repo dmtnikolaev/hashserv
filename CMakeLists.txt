@@ -13,6 +13,7 @@ set(SOURCE src/main.cpp
         src/transparser.cpp
         src/processing.cpp
         src/pool.cpp
+        src/server.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCE})

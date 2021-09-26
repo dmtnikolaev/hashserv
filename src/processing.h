@@ -4,6 +4,7 @@
 #include "transaction.h"
 
 #include "mhash.h"
+#include "server.h"
 
 const unsigned char kDigitMap[] = {
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
@@ -32,7 +33,7 @@ const std::string kMethodStrs[] = {
     "UNKNOWN"
 };
 
-std::string ProcessTransaction(const Transaction& trans);
+std::string ProcessRequest(const Transaction& trans, Status* status);
 
 Method DetermineMethod(const RequestInfo& info);
 
