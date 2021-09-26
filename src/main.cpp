@@ -1,5 +1,8 @@
 #include <iostream>
 #include <unistd.h>
+#include <vector>
+#include <thread>
+#include <mutex>
 
 extern "C" {
 #include <sys/types.h>
@@ -10,6 +13,9 @@ extern "C" {
 #include "transparser.h"
 #include "transaction.h"
 #include "processing.h"
+#include "pool.h"
+
+constexpr int kBuffSize = 2048;
 
 std::string BuildResponce(const std::string& process_result) {
     std::string resp = "HTTP/1.0 200 OK\r\n"
@@ -20,12 +26,20 @@ std::string BuildResponce(const std::string& process_result) {
     return resp;
 }
 
-int main() {
+void Responce(int client_socket) {
     TransParser parser;
-    
+    char data[kBuffSize];
+    auto recieved = recv(client_socket, data, kBuffSize, 0);
+    if (recieved == 0) return;
+    auto trans = parser.ParseTransaction(std::string(data, recieved));
+    auto resp = BuildResponce(ProcessTransaction(trans));
+    send(client_socket, resp.c_str(), resp.length(), 0);
+    close(client_socket);
+}
+
+int main() {
     constexpr int kBacklog = 10;
     constexpr int kPort = 8001;
-    constexpr int kBuffSize = 2048;
 
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -45,17 +59,12 @@ int main() {
         std::cout << "Error: The server is not listening." << std::endl;
         return 1;
     }
-    int client_socket;
+    
+    auto pool = Pool(1024);
 
-    char data[kBuffSize];
     while (true) {
-        client_socket = accept(server_socket, nullptr, nullptr);
-        auto recieved = recv(client_socket, data, kBuffSize, 0);
-        auto trans = parser.ParseTransaction(std::string(data, recieved));
-        auto resp = BuildResponce(ProcessTransaction(trans));
-        std::cout << resp << std::endl;
-        send(client_socket, resp.c_str(), resp.length(), 0);
-        close(client_socket);
+        auto client_socket = accept(server_socket, nullptr, nullptr);
+        pool.AddJob(std::make_tuple(&Responce, client_socket));
     }
 
     return 0;
