@@ -46,16 +46,15 @@ void Pool::AddJob(std::tuple<void (*) (int) , int> new_job) {
 void Pool::Shutdown() {
     {
         std::unique_lock<std::mutex> lock(threadpool_mutex_);
-        terminate_pool_ = true; // use this flag in condition.wait
+        terminate_pool_ = true;
     }
 
-    condition_.notify_all(); // wake up all threads.
+    condition_.notify_all();
 
-    // Join all threads.
     for (std::thread &th : threads_) {
         th.join();
     }
 
     threads_.clear();  
-    stopped_ = true; // use this flag in destructor, if not set, call shutdown()
+    stopped_ = true;
 }

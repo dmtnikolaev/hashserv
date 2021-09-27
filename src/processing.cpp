@@ -18,33 +18,22 @@ std::string ProcessRequest(const Transaction& trans, Status* status) {
             return res;
         }
 
-        bool type = false;
-        for (const auto& header : trans.headers) {
-            if (header == "Content-type: application/json" ||
-                header == "Content-Type: application/json") {
-                type = true;
-            }
-        }
-        if (!type) {
+        if (!CheckHeaders(trans.headers)) {
             *status = Status::OK;
             return res;
         }
 
-        auto body = json::parse(trans.body);
-        std::string hh;
-        if (body.contains("data")) {
-            hh = body["data"].get<std::string>();
-
-            auto h1 = HashData(hh, MHASH_SHA512);
-            auto h2 = HashData(hh, MHASH_GOST);
-
-            json hash;
-            hash["sha512"] = h1;
-            hash["gost"] = h2;
-
-            res = hash.dump();
-            *status = Status::OK;
+        json body;
+        try {
+            body = json::parse(trans.body);
         }
+        catch(std::exception& ex) {
+            *status = Status::OK;
+            return res;
+        }
+
+        res = ProcessHash(body);
+        *status = Status::OK;
     }
     else {
         *status = Status::NOT_FOUND;
@@ -58,7 +47,7 @@ Method DetermineMethod(const RequestInfo& info) {
         return Method::POST;
     }
     
-    for (auto& method_str : kMethodStrs) {
+    for (const auto& method_str : kMethodStrs) {
         if (info.method == method_str) {
             return Method::UNREALIZED;
         }
@@ -67,7 +56,7 @@ Method DetermineMethod(const RequestInfo& info) {
 }
 
 std::string HashData(const std::string& data, hashid hash_method) {
-    auto td = mhash_init(hash_method); 
+    auto* td = mhash_init(hash_method); 
 
     unsigned char buffer;
     unsigned char *hash;
@@ -83,11 +72,41 @@ std::string HashData(const std::string& data, hashid hash_method) {
     auto res = std::string();
     res.reserve(2*bs + 1);
 
-    for (auto i = 0; i < bs; i++) {
+    for (auto i = 0; i < (int)bs; i++) {
         int n = static_cast<int>(hash[i]);
         res.push_back(kDigitMap[(n / 16) & 0xf]);
         res.push_back(kDigitMap[n & 0xf]);
     }
 
     return res;    
+}
+
+bool CheckHeaders(const std::vector<std::string>& headers) {
+    bool res = false;
+    for (const auto& header : headers) {
+        if (header == "Content-type: application/json" ||
+            header == "Content-Type: application/json") {
+            res = true;
+        }
+    }
+    return res;
+}
+
+std::string ProcessHash(const json& data) {
+    std::string hh;
+    std::string res;
+    if (data.contains("data")) {
+        hh = data["data"].get<std::string>();
+
+        auto h1 = HashData(hh, MHASH_SHA512);
+        auto h2 = HashData(hh, MHASH_GOST);
+
+        json hash;
+        hash["sha512"] = h1;
+        hash["gost"] = h2;
+
+        res = hash.dump();
+    }
+
+    return res;
 }

@@ -59,8 +59,13 @@ RequestInfo TransParser::ParseInfo(std::string raw_request) {
     }
     req_tokens.push_back(raw_request.substr(pos, raw_request.length() - pos));
 
-    RequestInfo info {req_tokens.at(0), req_tokens.at(1), req_tokens.at(2)};
+    RequestInfo info;
+    try {
+        info = {req_tokens.at(0), req_tokens.at(1), req_tokens.at(2)};
+    }
+    catch (std::exception& ex){
+        info = {"", "", ""};
+    }
 
     return info;
 }
-
